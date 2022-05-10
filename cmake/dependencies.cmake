@@ -82,6 +82,11 @@ if(MORPHEUS_BUILD_TESTS)
           )
 endif()
 
+# hwloc
+# =====
+set(HWLOC_VERSION "2.5.0" CACHE STRING "Version of hwloc to use")
+include(deps/Configure_hwloc)
+
 # libcudacxx -- get an explicit lubcudacxx build, matx tries to pull a tag that doesn't exist.
 # =========
 set(LIBCUDACXX_VERSION "1.6.0" CACHE STRING "Version of libcudacxx to use")
@@ -114,7 +119,7 @@ include(deps/Configure_cudf)
 
 # Triton-client
 # =====
-set(TRITONCLIENT_VERSION "${RAPIDS_VERSION}" CACHE STRING "Which version of TritonClient to use")
+set(TRITONCLIENT_VERSION "21.10" CACHE STRING "Which version of TritonClient to use")
 include(deps/Configure_TritonClient)
 
 list(POP_BACK CMAKE_MESSAGE_CONTEXT)
