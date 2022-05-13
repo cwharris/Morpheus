@@ -23,7 +23,7 @@
 #include <cudf/io/json.hpp>
 #include <cudf/strings/replace.hpp>
 #include <cudf/types.hpp>
-#include <nvtext/subword_tokenize.hpp>
+#include <../src/nxtext/subword_tokenize.hpp>
 
 #include <glog/logging.h>
 #include <pybind11/gil.h>

@@ -32,7 +32,7 @@
 #include <cudf/io/json.hpp>
 #include <cudf/strings/replace.hpp>
 #include <nlohmann/json.hpp>
-#include <nvtext/subword_tokenize.hpp>
+#include <../src/nxtext/subword_tokenize.hpp>
 
 #include <chrono>
 #include <cstddef>

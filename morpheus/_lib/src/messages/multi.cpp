@@ -160,6 +160,8 @@ pybind11::object MultiMessageInterfaceProxy::get_meta(MultiMessage &self)
     // Must do implicit conversion to pybind11::object here!!!
     pybind11::object df_slice = df.attr("loc")[df.attr("index")[index_slice]];
 
+    // we should manufacture a view over the underlying data here. not store a python dataframe and manipulate it
+
     return df_slice;
 }
 
@@ -214,6 +216,13 @@ void MultiMessageInterfaceProxy::set_meta(MultiMessage &self, pybind11::object c
     // Mimic this python code
     // self.meta.df.loc[self.meta.df.index[self.mess_offset:self.mess_offset + self.mess_count], columns] =
     // value
+
+    // ensure len(value) == mess_count. If not, throw.
+
+    // assume `columns` is enumerable type of strings, such as list or tuple.
+
+    // what to do if column names collide? existing functionality would overwrite/replace existing columns.
+
     auto df = self.meta->get_py_table();
 
     auto index_slice = pybind11::slice(

@@ -55,7 +55,7 @@ setup(
         "dfencoder @ git+https://github.com/efajardo-nv/dfencoder.git@nv-updates#egg=dfencoder",
         "grpcio-channelz",
         "networkx",
-        "torch==1.10.2+cu113",
+        "torch==1.10.2",
         "tqdm",
         "tritonclient[all]",
         "typing-utils",

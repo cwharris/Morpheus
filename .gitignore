@@ -198,5 +198,6 @@ mlruns/*
 
 # Explicitly ignore .vscode/settings.json and .vscode/launch.json. Shared settings should go in morpheus.code-workspace
 # and user settings will go in .vscode/launch.json and .vscode/settings.json
-.vscode/settings.json
+.vscode/c_cpp_properties.json
 .vscode/launch.json
+.vscode/settings.json

@@ -26,7 +26,7 @@
 #include <cudf/types.hpp>
 #include <cudf/unary.hpp>
 #include <librdkafka/rdkafkacpp.h>
-#include <nvtext/subword_tokenize.hpp>
+#include <../src/nxtext/subword_tokenize.hpp>
 
 #include <cstdint>
 #include <exception>
