@@ -32,64 +32,6 @@
 #include <vector>
 
 namespace morpheus {
-/******* Component-private Classes *********************/
-/******* MessageMetaImpl *******************************/
-/*
-struct MessageMetaImpl {
-    virtual pybind11::object get_py_table() const = 0;
-
-    virtual TableInfo get_info() const = 0;
-};
-*/
-
-/******* MessageMetaPyImpl *****************************/
-// struct MessageMetaPyImpl : public MessageMetaImpl
-// {
-//     MessageMetaPyImpl(pybind11::object&& pydf) : m_pydf(std::move(pydf)) {}
-
-//     MessageMetaPyImpl(cudf::io::table_with_metadata&& table) : m_pydf(std::move(cpp_to_py(std::move(table)))) {}
-
-//     pybind11::object get_py_table() const override
-//     {
-//         return m_pydf;
-//     }
-
-//     TableInfo get_info() const override
-//     {
-//         pybind11::gil_scoped_acquire gil;
-
-//         return make_table_info_from_table((PyTable*)this->m_pydf.ptr());
-//     }
-
-//     pybind11::object m_pydf;
-// };
-
-// struct MessageMetaCppImpl : public MessageMetaImpl
-// {
-//     MessageMetaCppImpl(cudf::io::table_with_metadata&& table) : m_table(std::move(table)) {}
-
-//     pybind11::object get_py_table() const override
-//     {
-//         pybind11::gil_scoped_acquire gil;
-
-//         // Get a python object from this data table
-//         pybind11::object py_datatable = pybind11::cast(m_data_table);
-
-//         // Now convert to a python TableInfo object
-//         auto converted_table = pybind11::reinterpret_steal<pybind11::object>(
-//             (PyObject*)make_table_from_datatable(m_data_table, (PyObject*)py_datatable.ptr()));
-
-//         return converted_table;
-//     }
-//     TableInfo get_info() const override
-//     {
-//         return TableInfo(m_data_table);
-//     }
-
-//     std::shared_ptr<DataTable> m_data_table;
-// };
-
-// std::unique_ptr<MessageMetaImpl> m_data;
 
 /****** Component public implementations *******************/
 /****** MessageMeta ****************************************/

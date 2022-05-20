@@ -57,6 +57,7 @@ add_library(${PROJECT_NAME}::morpheus ALIAS morpheus)
 
 target_link_libraries(morpheus
     PUBLIC
+      cuda_utils
       ${cudf_helpers_target}
       TritonClient::httpclient_static
       RDKAFKA::RDKAFKA

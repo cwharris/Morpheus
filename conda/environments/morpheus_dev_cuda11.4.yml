@@ -81,6 +81,7 @@ dependencies:
         - grpcio-channelz
         - networkx
         - nvidia-pyindex
+        - pybind11-stubgen==0.10.5
         - torch==1.10.2
         - tqdm
         - tritonclient[all]
