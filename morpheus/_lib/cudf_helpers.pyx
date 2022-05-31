@@ -25,7 +25,7 @@ from cudf._lib.cpp.column.column_view cimport column_view
 from cudf._lib.cpp.table.table_view cimport table_view
 from cudf._lib.cpp.table.table cimport table
 from cudf._lib.cpp.io.types cimport table_with_metadata, table_metadata
-from cudf._lib.utils cimport data_from_table_view, data_from_unique_ptr, table_view_from_table
+from cudf._lib.utils cimport data_from_table_view, data_from_unique_ptr, table_view_from_table, get_column_names
 
 cdef extern from "morpheus/objects/table_info.hpp" namespace "morpheus" nogil:
 
@@ -76,30 +76,32 @@ cdef public api:
 
 #       return DataFrame._from_data(data, index)
 
-   TableInfo make_table_info_from_table(object table, shared_ptr[const IDataTable] parent):
+   TableInfo make_table_info_from_table(object df, shared_ptr[const IDataTable] parent):
 
-      cdef table_view input_table_view = table_view_from_table(table, ignore_index=False)
+      cdef vector[string] temp_col_names = get_column_names(df, True)
+
+      cdef table_view input_table_view = table_view_from_table(df, ignore_index=False)
       cdef vector[string] index_names
       cdef vector[string] column_names
 
       # cuDF does a weird check where if there is only one name in both index and columns, and that column is empty or
       # None, then change it to '""'. Not sure what this is used for
-      check_empty_name = (table._num_indices + table._num_columns) == 1
+      check_empty_name = temp_col_names.size() == 1
 
-      for name in table._index_names:
+      for name in df._index.names:
          if (check_empty_name and name in (None, '')):
             name = '""'
          elif (name is None):
             name = ""
 
-         index_names.push_back(name.encode())
+         index_names.push_back(str.encode(name))
 
-      for name in table._column_names:
+      for name in df._column_names:
          if (check_empty_name and name in (None, '')):
             name = '""'
          elif (name is None):
             name = ""
 
-         column_names.push_back(name.encode())
+         column_names.push_back(str.encode(name))
 
       return TableInfo(parent, input_table_view, index_names, column_names)

@@ -15,9 +15,9 @@
 
 
 # 21.10 is currently required because we pull in private cuDF functionality that has changed in 21.12+
-set(RAPIDS_VERSION "22.06" CACHE STRING "Global default version for all Rapids project dependencies")
+set(RAPIDS_VERSION "22.04" CACHE STRING "Global default version for all Rapids project dependencies")
 # RAPIDS_CMAKE 21.12 is required for libcudacxx.cmake
-set(RAPIDS_CMAKE_VERSION "22.06" CACHE STRING "Version of rapids-cmake to use")
+set(RAPIDS_CMAKE_VERSION "22.04" CACHE STRING "Version of rapids-cmake to use")
 
 # Download and load the repo according to the rapids-cmake instructions if it does not exist
 if(NOT EXISTS ${CMAKE_BINARY_DIR}/RAPIDS.cmake)

@@ -30,9 +30,9 @@ dependencies:
     - cmake=3.22
     - cuda-nvml-dev=11.4
     - cudatoolkit=11.4
-    - cudf 22.06.*
-    - cudf_kafka 22.06.*
-    - cupy=9.5.0
+    - cudf 22.04.*
+    - cudf_kafka 22.04.*
+    - cupy>=9.5.0,<11.0.0a0
     - cython=0.29.24
     - docker-compose=1.29.2
     - docker-py=5.0.3
@@ -44,13 +44,13 @@ dependencies:
     - git>=2.35.3 # Needed for wildcards on safe.directory
     - glog=0.5
     - gmock=1.10
-    - grpc-cpp>=1.43
+    - grpc-cpp=1.43
     - gtest=1.10
     - gxx_linux-64=9.4
     - isort
     - mlflow>=1.23
     - myst-parser==0.17
-    - neo 22.06.*
+    - neo 22.04.*
     - ninja=1.10
     - nodejs=17.4.0
     - pandas=1.3
