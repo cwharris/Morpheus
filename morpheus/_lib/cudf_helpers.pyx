@@ -45,11 +45,6 @@ cdef extern from "morpheus/objects/table_info.hpp" namespace "morpheus" nogil:
       int num_rows() const
 
 cdef public api:
-#    Column make_column_from_view(column_view view):
-#       return Column.from_column_view(view, None)
-
-#    column_view make_view_from_column(Column col):
-#       return col.view()
 
    object make_table_from_table_with_metadata(table_with_metadata table, int index_col_count):
 
@@ -63,18 +58,6 @@ cdef public api:
       data, index = data_from_unique_ptr(move(table.tbl), column_names=column_names, index_names=index_names)
 
       return DataFrame._from_data(data, index)
-
-#    Table make_table_from_table_info(TableInfo info, object owner):
-
-#       i_names = info.get_index_names()
-#       c_names = info.get_column_names()
-
-#       index_names = [x.decode() for x in i_names]
-#       column_names = [x.decode() for x in c_names]
-
-#       data, index = data_from_table_view(info.get_view(), owner, column_names=column_names, index_names=index_names)
-
-#       return DataFrame._from_data(data, index)
 
    TableInfo make_table_info_from_table(object df, shared_ptr[const IDataTable] parent):
 
