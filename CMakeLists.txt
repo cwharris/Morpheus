@@ -71,6 +71,12 @@ include(cmake/dependencies.cmake)
 # - Post dependencies setup --------
 include(cmake/setup_compiler.cmake)
 
+# To make it easier for CI to find output files, set the default executable suffix to .x if not set
+if("${CMAKE_EXECUTABLE_SUFFIX}" STREQUAL "")
+  set(CMAKE_EXECUTABLE_SUFFIX ".x")
+endif()
+
+
 ##################################
 ##### Morpheus Python Setup ######
 ##################################
@@ -93,6 +99,7 @@ set(MORPHEUS_ROOT_PYTHON_FILES
   "setup.cfg"
   "setup.py"
   "versioneer.py"
+  "MANIFEST.in"
 )
 
 # Add the root python files to the list
@@ -134,6 +141,7 @@ install(
   FILES_MATCHING
     PATTERN "*.py"
     PATTERN "py.typed"
+    PATTERN "data/*"
 )
 
 
