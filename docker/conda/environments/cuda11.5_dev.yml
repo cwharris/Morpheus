@@ -27,6 +27,7 @@ dependencies:
     - cachetools=5.0.0
     - ccache>=3.7
     - cmake=3.22
+    - cuda-nvml-dev=11.4
     - cudatoolkit=11.5
     - cudf 22.04
     - cudf_kafka 22.04.*

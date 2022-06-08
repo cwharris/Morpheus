@@ -14,7 +14,6 @@
 # limitations under the License.
 
 
-# 21.10 is currently required because we pull in private cuDF functionality that has changed in 21.12+
 set(RAPIDS_VERSION "22.04" CACHE STRING "Global default version for all Rapids project dependencies")
 set(RAPIDS_CMAKE_VERSION "${RAPIDS_VERSION}" CACHE STRING "Version of rapids-cmake to use")
 
