@@ -22,6 +22,7 @@
 #include "morpheus/objects/tensor_object.hpp"
 
 #include <srf/cuda/sync.hpp>
+#include <cudf/utilities/type_dispatcher.hpp>
 
 #include <matx.h>
 
