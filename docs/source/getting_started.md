@@ -146,7 +146,7 @@ Many of the validation tests and example workflows require a Triton server to fu
 ```bash
 docker run --rm -ti --gpus=all -p8000:8000 -p8001:8001 -p8002:8002 \
   -v $PWD/models:/models \
-  nvcr.io/nvidia/tritonserver:22.08-py3 \
+  nvcr.io/nvidia/tritonserver:22.10-py3 \
   tritonserver --model-repository=/models/triton-model-repo \
     --exit-on-error=false \
     --log-info=true \
@@ -160,7 +160,7 @@ Note: The above command is useful for testing out Morpheus, however it does load
 ```bash
 docker run --rm -ti --gpus=all -p8000:8000 -p8001:8001 -p8002:8002 \
   -v $PWD/models:/models \
-  nvcr.io/nvidia/tritonserver:22.08-py3 \
+  nvcr.io/nvidia/tritonserver:22.10-py3 \
   tritonserver --model-repository=/models/triton-model-repo \
     --exit-on-error=false \
     --log-info=true \
