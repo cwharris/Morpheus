@@ -22,7 +22,7 @@ The DFP example workflows in Morpheus are designed to scale up to company wide w
 
 ### The "Starter" Example
 
-This example is designed to simplify the number of stages and components and provided a fully contained workflow in a single pipeline.
+This example is designed to simplify the number of stages and components and provide a fully contained workflow in a single pipeline.
 
 Key Differences:
  * A single pipeline which performs both training and inference
