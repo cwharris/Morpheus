@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .extensions import register_morpheus_extensions
-from .mutate import MutateOp
+from .morpheus_ext import register_morpheus_extensions
 
-__all__ = ["MutateOp", "register_morpheus_extensions"]
+__all__ = ["register_morpheus_extensions"]

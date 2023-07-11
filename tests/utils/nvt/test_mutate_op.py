@@ -14,6 +14,7 @@
 
 import numpy as np
 import pandas as pd
+import pytest
 from merlin.core.dispatch import DataFrameType
 from merlin.schema import ColumnSchema
 from merlin.schema import Schema
@@ -22,23 +23,22 @@ from nvtabular.ops.operator import ColumnSelector
 from morpheus.utils.nvt import MutateOp
 
 
-def setUp():
-    df = pd.DataFrame({'A': [1, 2, 3], 'B': [4, 5, 6], 'C': [7, 8, 9]})
-
-    def example_transform(col_selector: ColumnSelector, df: DataFrameType) -> DataFrameType:
-        selected_columns = col_selector.names
-        for col in selected_columns:
-            df[col + '_new'] = df[col] * 2
-        return df
-
-    return df, example_transform
+@pytest.fixture(name="df")
+def df_fixture():
+    yield pd.DataFrame({'A': [1, 2, 3], 'B': [4, 5, 6], 'C': [7, 8, 9]})
 
 
-def test_transform():
-    df, example_transform = setUp()
-    op = MutateOp(example_transform, output_columns=[('A_new', np.dtype('int64')), ('B_new', np.dtype('int64'))])
+def example_transform(col_selector: ColumnSelector, df: DataFrameType) -> DataFrameType:
+    selected_columns = col_selector.names
+    for col in selected_columns:
+        df[col + '_new'] = df[col] * 2
+    return df
+
+
+def test_transform(df: DataFrameType):
+    nvt_op = MutateOp(example_transform, output_columns=[('A_new', np.dtype('int64')), ('B_new', np.dtype('int64'))])
     col_selector = ColumnSelector(['A', 'B'])
-    transformed_df = op.transform(col_selector, df)
+    transformed_df = nvt_op.transform(col_selector, df)
 
     expected_df = df.copy()
     expected_df['A_new'] = df['A'] * 2
@@ -52,15 +52,13 @@ def test_transform():
 
 
 # Test for lambda function transformation
-def test_transform_lambda():
-    df = pd.DataFrame({'A': [1, 2, 3], 'B': [4, 5, 6], 'C': [7, 8, 9]})
-
-    op = MutateOp(lambda col_selector,
-                  df: df.assign(**{f"{col}_new": df[col] * 2
-                                   for col in col_selector.names}),
-                  output_columns=[('A_new', np.dtype('int64')), ('B_new', np.dtype('int64'))])
+def test_transform_lambda(df: DataFrameType):
+    nvt_op = MutateOp(lambda col_selector,
+                      df: df.assign(**{f"{col}_new": df[col] * 2
+                                       for col in col_selector.names}),
+                      output_columns=[('A_new', np.dtype('int64')), ('B_new', np.dtype('int64'))])
     col_selector = ColumnSelector(['A', 'B'])
-    transformed_df = op.transform(col_selector, df)
+    transformed_df = nvt_op.transform(col_selector, df)
 
     expected_df = df.copy()
     expected_df['A_new'] = df['A'] * 2
@@ -69,8 +67,7 @@ def test_transform_lambda():
     assert transformed_df.equals(expected_df), "Test transform with lambda failed"
 
 
-def test_transform_additional_columns():
-    df = pd.DataFrame({'A': [1, 2, 3], 'B': [4, 5, 6], 'C': [7, 8, 9]})
+def test_transform_additional_columns(df: DataFrameType):
 
     def additional_transform(col_selector: ColumnSelector, df: DataFrameType) -> DataFrameType:
         selected_columns = col_selector.names
@@ -79,10 +76,11 @@ def test_transform_additional_columns():
         df['D'] = df['A'] + df['B']
         return df
 
-    op = MutateOp(additional_transform,
-                  output_columns=[('A_new', np.dtype('int64')), ('B_new', np.dtype('int64')), ('D', np.dtype('int64'))])
+    nvt_op = MutateOp(additional_transform,
+                      output_columns=[('A_new', np.dtype('int64')), ('B_new', np.dtype('int64')),
+                                      ('D', np.dtype('int64'))])
     col_selector = ColumnSelector(['A', 'B'])
-    transformed_df = op.transform(col_selector, df)
+    transformed_df = nvt_op.transform(col_selector, df)
 
     expected_df = df.copy()
     expected_df['A_new'] = df['A'] * 2
@@ -93,10 +91,9 @@ def test_transform_additional_columns():
 
 
 def test_column_mapping():
-    _, example_transform = setUp()
-    op = MutateOp(example_transform, output_columns=[('A_new', np.dtype('int64')), ('B_new', np.dtype('int64'))])
+    nvt_op = MutateOp(example_transform, output_columns=[('A_new', np.dtype('int64')), ('B_new', np.dtype('int64'))])
     col_selector = ColumnSelector(['A', 'B'])
-    column_mapping = op.column_mapping(col_selector)
+    column_mapping = nvt_op.column_mapping(col_selector)
 
     expected_mapping = {'A_new': ['A', 'B'], 'B_new': ['A', 'B']}
 
@@ -104,8 +101,7 @@ def test_column_mapping():
 
 
 def test_compute_output_schema():
-    _, example_transform = setUp()
-    op = MutateOp(example_transform, output_columns=[('A_new', np.dtype('int64')), ('B_new', np.dtype('int64'))])
+    nvt_op = MutateOp(example_transform, output_columns=[('A_new', np.dtype('int64')), ('B_new', np.dtype('int64'))])
     col_selector = ColumnSelector(['A', 'B'])
 
     input_schema = Schema([
@@ -114,7 +110,7 @@ def test_compute_output_schema():
         ColumnSchema('C', dtype=np.dtype('int64'))
     ])
 
-    output_schema = op.compute_output_schema(input_schema, col_selector)
+    output_schema = nvt_op.compute_output_schema(input_schema, col_selector)
 
     expected_schema = Schema(
         [ColumnSchema('A_new', dtype=np.dtype('int64')), ColumnSchema('B_new', dtype=np.dtype('int64'))])

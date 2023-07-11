@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import dataclasses
+import os
+import re
 import typing
 from functools import partial
 
@@ -36,46 +38,40 @@ from morpheus.utils.column_info import RenameColumn
 from morpheus.utils.column_info import StringCatColumn
 from morpheus.utils.column_info import StringJoinColumn
 from morpheus.utils.nvt import MutateOp
+from morpheus.utils.nvt.decorators import sync_df_as_pandas
 from morpheus.utils.nvt.transforms import json_flatten
-
-
-def sync_df_as_pandas(func: typing.Callable) -> typing.Callable:
-    """
-    This function serves as a decorator that synchronizes cudf.DataFrame to pandas.DataFrame before applying the function.
-
-    :param func: The function to apply to the DataFrame
-    :return: The wrapped function
-    """
-
-    def wrapper(df: typing.Union[pd.DataFrame, cudf.DataFrame], **kwargs) -> typing.Union[pd.DataFrame, cudf.DataFrame]:
-        convert_to_cudf = False
-        if type(df) == cudf.DataFrame:
-            convert_to_cudf = True
-            df = df.to_pandas()
-
-        df = func(df, **kwargs)
-
-        if convert_to_cudf:
-            df = cudf.from_pandas(df)
-
-        return df
-
-    return wrapper
 
 
 @dataclasses.dataclass
 class JSONFlattenInfo(ColumnInfo):
-    """Subclass of `ColumnInfo`, Dummy ColumnInfo -- Makes it easier to generate a graph of the column dependencies"""
+    """
+    Subclass of `ColumnInfo`. Makes it easier to generate a graph of the column dependencies.
+
+    Attributes
+    ----------
+    input_col_names : list
+        List of input column names.
+    output_col_names : list
+        List of output column names.
+    """
+
     input_col_names: list
     output_col_names: list
 
 
-def resolve_json_output_columns(input_schema) -> typing.List[typing.Tuple[str, str]]:
+def _resolve_json_output_columns(input_schema: DataFrameInputSchema) -> typing.List[typing.Tuple[str, str]]:
     """
     Resolves JSON output columns from an input schema.
 
-    :param input_schema: The input schema to resolve the JSON output columns from
-    :return: A list of tuples where each tuple is a pair of column name and its data type
+    Parameters
+    ----------
+    input_schema : DataFrameInputSchema
+        The input schema to resolve the JSON output columns from.
+
+    Returns
+    -------
+    list of tuples
+        A list of tuples where each tuple is a pair of column name and its data type.
     """
 
     column_info_objects = input_schema.column_info
@@ -99,103 +95,188 @@ def resolve_json_output_columns(input_schema) -> typing.List[typing.Tuple[str, s
     return output_cols
 
 
-def get_ci_column_selector(ci):
+def _get_ci_column_selector(col_info) -> typing.Union[str, typing.List[str]]:
     """
     Return a column selector based on a ColumnInfo object.
 
-    :param ci: The ColumnInfo object
-    :return: A column selector
+    Parameters
+    ----------
+    col_info : ColumnInfo
+        The ColumnInfo object.
+
+    Returns
+    -------
+    Union[str, list of str]
+        A column selector.
+
+    Raises
+    ------
+    TypeError
+        If the input `ci` is not an instance of ColumnInfo.
+    Exception
+        If the type of ColumnInfo is unknown.
     """
-    if (ci.__class__ == ColumnInfo):
-        return ci.name
 
-    elif ci.__class__ in [RenameColumn, BoolColumn, DateTimeColumn, StringJoinColumn, IncrementColumn]:
-        return ci.input_name
+    if (not isinstance(col_info, ColumnInfo)):
+        raise TypeError
 
-    elif ci.__class__ == StringCatColumn:
-        return ci.input_columns
+    # pylint: disable=no-else-return
+    if (col_info.__class__ == ColumnInfo):
+        return col_info.name
 
-    elif ci.__class__ == JSONFlattenInfo:
-        return ci.input_col_names
+    elif col_info.__class__ in [RenameColumn, BoolColumn, DateTimeColumn, StringJoinColumn, IncrementColumn]:
+        return col_info.input_name
 
-    elif ci.__class__ == CustomColumn:
+    elif col_info.__class__ == StringCatColumn:
+        return col_info.input_columns
+
+    elif col_info.__class__ == JSONFlattenInfo:
+        return col_info.input_col_names
+
+    elif col_info.__class__ == CustomColumn:
         return '*'
 
     else:
-        raise Exception(f"Unknown ColumnInfo type: {ci.__class__}")
+        raise ValueError(f"Unknown ColumnInfo type: {col_info.__class__}")
 
 
-def json_flatten_from_input_schema(json_input_cols, json_output_cols) -> MutateOp:
+def _json_flatten_from_input_schema(json_input_cols: typing.List[str],
+                                    json_output_cols: typing.List[typing.Tuple[str, str]]) -> MutateOp:
     """
     Return a JSON flatten operation from an input schema.
 
-    :param json_input_cols: A list of JSON input columns
-    :param json_output_cols: A list of JSON output columns
-    :return: A MutateOp object that represents the JSON flatten operation
+    Parameters
+    ----------
+    json_input_cols : list of str
+        A list of JSON input columns.
+    json_output_cols : list of tuple
+        A list of JSON output columns.
+
+    Returns
+    -------
+    MutateOp
+        A MutateOp object that represents the JSON flatten operation.
     """
+
     json_flatten_op = MutateOp(json_flatten, dependencies=json_input_cols, output_columns=json_output_cols)
 
     return json_flatten_op
 
 
-@sync_df_as_pandas
-def string_cat_col(df: typing.Union[pd.DataFrame, cudf.DataFrame], output_column,
-                   sep) -> typing.Union[pd.DataFrame, cudf.DataFrame]:
+@sync_df_as_pandas()
+def _string_cat_col(df: pd.DataFrame, output_column: str, sep: str) -> pd.DataFrame:
     """
     Concatenate the string representation of all supplied columns in a DataFrame.
 
-    :param df: The input DataFrame
-    :param output_column: The name of the output column
-    :param sep: The separator to use when concatenating the strings
-    :return: The resulting DataFrame
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The input DataFrame.
+    output_column : str
+        The name of the output column.
+    sep : str
+        The separator to use when concatenating the strings.
+
+    Returns
+    -------
+    pandas.DataFrame
+        The resulting DataFrame.
     """
+
     cat_col = df.apply(lambda row: sep.join(row.values.astype(str)), axis=1)
 
     return pd.DataFrame({output_column: cat_col})
 
 
-def nvt_string_cat_col(column_selector: ColumnSelector,
-                       df: typing.Union[pd.DataFrame, cudf.DataFrame],
-                       output_column,
-                       input_columns,
-                       sep: str = ', '):
+# pylint
+def _nvt_string_cat_col(
+        column_selector: ColumnSelector,  # pylint: disable=unused-argument
+        df: typing.Union[pd.DataFrame, cudf.DataFrame],
+        output_column: str,
+        input_columns: typing.List[str],
+        sep: str = ', '):
     """
     Concatenates the string representation of the specified columns in a DataFrame.
 
-    :param column_selector: A ColumnSelector object -> unused.
-    :param df: The input DataFrame
-    :param output_column: The name of the output column
-    :param input_columns: The input columns to concatenate
-    :param sep: The separator to use when concatenating the strings
-    :return: The resulting DataFrame
+    Parameters
+    ----------
+    column_selector : ColumnSelector
+        A ColumnSelector object.
+    df : Union[pandas.DataFrame, cudf.DataFrame]
+        The input DataFrame.
+    output_column : str
+        The name of the output column.
+    input_columns : list of str
+        The input columns to concatenate.
+    sep : str, default is ', '
+        The separator to use when concatenating the strings.
+
+    Returns
+    -------
+    Union[pandas.DataFrame, cudf.DataFrame]
+        The resulting DataFrame.
     """
-    return string_cat_col(df[input_columns], output_column=output_column, sep=sep)
+
+    return _string_cat_col(df[input_columns], output_column=output_column, sep=sep)
 
 
-@sync_df_as_pandas
-def increment_column(df: typing.Union[pd.DataFrame, cudf.DataFrame], output_column, input_column, period: str = 'D') \
-        -> typing.Union[pd.DataFrame, cudf.DataFrame]:
+@sync_df_as_pandas()
+def _increment_column(df: pd.DataFrame, output_column: str, input_column: str, period: str = 'D') -> pd.DataFrame:
     """
     Crete an increment a column in a DataFrame.
 
-    :param df: The input DataFrame
-    :param output_column: The name of the output column
-    :param input_column: The name of the input column
-    :param period: The period to increment by
-    :return: The resulting DataFrame
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The input DataFrame.
+    output_column : str
+        The name of the output column.
+    input_column : str
+        The name of the input column.
+    period : str, default is 'D'
+        The period to increment by.
+
+    Returns
+    -------
+    pandas.DataFrame
+        The resulting DataFrame.
     """
+
     period_index = pd.to_datetime(df[input_column]).dt.to_period(period)
     groupby_col = df.groupby([output_column, period_index]).cumcount()
 
     return pd.DataFrame({output_column: groupby_col})
 
 
-def nvt_increment_column(column_selector: ColumnSelector,
-                         df: typing.Union[pd.DataFrame, cudf.DataFrame],
-                         output_column,
-                         input_column,
-                         period: str = 'D'):
-    return increment_column(column_selector, df, output_column, input_column, period)
+def _nvt_increment_column(
+        column_selector: ColumnSelector,  # pylint: disable=unused-argument
+        df: typing.Union[pd.DataFrame, cudf.DataFrame],
+        output_column: str,
+        input_column: str,
+        period: str = 'D') -> typing.Union[pd.DataFrame, cudf.DataFrame]:
+    """
+    Increment a column in a DataFrame.
+
+    Parameters
+    ----------
+    column_selector : ColumnSelector
+        A ColumnSelector object. Unused.
+    df : Union[pandas.DataFrame, cudf.DataFrame]
+        The input DataFrame.
+    output_column : str
+        The name of the output column.
+    input_column : str
+        The name of the input column.
+    period : str, default is 'D'
+        The period to increment by.
+
+    Returns
+    -------
+    Union[pandas.DataFrame, cudf.DataFrame]
+        The resulting DataFrame.
+    """
+
+    return _increment_column(df, output_column, input_column, period)
 
 
 # Mappings from ColumnInfo types to functions that create the corresponding NVT operator
@@ -206,8 +287,6 @@ ColumnInfoProcessingMap = {
             LambdaOp(
                 lambda series: series.map(ci.value_map).astype(bool), dtype="bool", label=f"[BoolColumn] '{ci.name}'")
         ],
-    # ColumnInfo: lambda ci, deps: [
-    #    LambdaOp(lambda series: series.astype(ci.dtype), dtype=ci.dtype, label=f"[ColumnInfo] '{ci.name}'")],
     ColumnInfo:
         lambda ci,
         deps: [
@@ -218,7 +297,7 @@ ColumnInfoProcessingMap = {
                      output_columns=[(ci.name, ci.dtype)],
                      label=f"[ColumnInfo] '{ci.name}'")
         ],
-    # TODO(Devin): Custom columns are, potentially, very inefficient, because we have to run the custom function on the
+    # Note(Devin): Custom columns are, potentially, very inefficient, because we have to run the custom function on the
     #   entire dataset this is because NVT requires the input column be available, but CustomColumn is a generic
     #   transform taking df->series(ci.name)
     CustomColumn:
@@ -240,7 +319,7 @@ ColumnInfoProcessingMap = {
         lambda ci,
         deps: [
             MutateOp(partial(
-                nvt_increment_column, output_column=ci.groupby_column, input_column=ci.name, period=ci.period),
+                _nvt_increment_column, output_column=ci.groupby_column, input_column=ci.name, period=ci.period),
                      dependencies=deps,
                      output_columns=[(ci.name, ci.groupby_column)],
                      label=f"[IncrementColumn] '{ci.name}' => '{ci.groupby_column}'")
@@ -257,7 +336,7 @@ ColumnInfoProcessingMap = {
     StringCatColumn:
         lambda ci,
         deps: [
-            MutateOp(partial(nvt_string_cat_col, output_column=ci.name, input_columns=ci.input_columns, sep=ci.sep),
+            MutateOp(partial(_nvt_string_cat_col, output_column=ci.name, input_columns=ci.input_columns, sep=ci.sep),
                      dependencies=deps,
                      output_columns=[(ci.name, ci.dtype)],
                      label=f"[StringCatColumn] '{','.join(ci.input_columns)}' => '{ci.name}'")
@@ -266,29 +345,46 @@ ColumnInfoProcessingMap = {
         lambda ci,
         deps: [
             MutateOp(partial(
-                nvt_string_cat_col, output_column=ci.name, input_columns=[ci.name, ci.input_name], sep=ci.sep),
+                _nvt_string_cat_col, output_column=ci.name, input_columns=[ci.name, ci.input_name], sep=ci.sep),
                      dependencies=deps,
                      output_columns=[(ci.name, ci.dtype)],
                      label=f"[StringJoinColumn] '{ci.input_name}' => '{ci.name}'")
         ],
     JSONFlattenInfo:
         lambda ci,
-        deps: [json_flatten_from_input_schema(ci.input_col_names, ci.output_col_names)]
+        deps: [_json_flatten_from_input_schema(ci.input_col_names, ci.output_col_names)]
 }
 
 
-def build_nx_dependency_graph(column_info_objects: typing.List[ColumnInfo]) -> nx.DiGraph:
+def _build_nx_dependency_graph(column_info_objects: typing.List[ColumnInfo]) -> nx.DiGraph:
+    """
+    Build a networkx directed graph for dependencies among columns.
+
+    Parameters
+    ----------
+    column_info_objects : list of ColumnInfo
+        List of column information objects.
+
+    Returns
+    -------
+    nx.DiGraph
+        A networkx DiGraph where nodes represent columns and edges represent dependencies between columns.
+
+    """
     graph = nx.DiGraph()
 
-    def find_dependent_column(name, current_name):
-        for ci in column_info_objects:
-            if ci.name == current_name:
+    def _find_dependent_column(name, current_name):
+        for col_info in column_info_objects:
+            if col_info.name == current_name:
                 continue
-            if ci.name == name:
-                return ci
-            elif ci.__class__ == JSONFlattenInfo:
-                if name in [c for c, _ in ci.output_col_names]:
-                    return ci
+
+            # pylint: disable=no-else-return
+            if col_info.name == name:
+                return col_info
+            elif col_info.__class__ == JSONFlattenInfo:
+                if name in [c for c, _ in col_info.output_col_names]:
+                    return col_info
+
         return None
 
     for col_info in column_info_objects:
@@ -297,29 +393,49 @@ def build_nx_dependency_graph(column_info_objects: typing.List[ColumnInfo]) -> n
         if col_info.__class__ in [RenameColumn, BoolColumn, DateTimeColumn, StringJoinColumn, IncrementColumn]:
             # If col_info.name != col_info.input_name then we're creating a potential dependency
             if col_info.name != col_info.input_name:
-                dep_col_info = find_dependent_column(col_info.input_name, col_info.name)
+                dep_col_info = _find_dependent_column(col_info.input_name, col_info.name)
                 if dep_col_info:
                     # This CI is dependent on the dep_col_info CI
                     graph.add_edge(dep_col_info.name, col_info.name)
 
         elif col_info.__class__ == StringCatColumn:
             for input_col_name in col_info.input_columns:
-                dep_col_info = find_dependent_column(input_col_name, col_info.name)
+                dep_col_info = _find_dependent_column(input_col_name, col_info.name)
                 if dep_col_info:
                     graph.add_edge(dep_col_info.name, col_info.name)
 
         elif col_info.__class__ == JSONFlattenInfo:
             for output_col_name in [c for c, _ in col_info.output_col_names]:
-                dep_col_info = find_dependent_column(output_col_name, col_info.name)
+                dep_col_info = _find_dependent_column(output_col_name, col_info.name)
                 if dep_col_info:
                     graph.add_edge(dep_col_info.name, col_info.name)
 
     return graph
 
 
-def bfs_traversal_with_op_map(graph, ci_map, root_nodes):
+def _bfs_traversal_with_op_map(graph: nx.Graph,
+                               ci_map: typing.Dict[str, ColumnInfo],
+                               root_nodes: typing.List[typing.Any]):
+    """
+    Perform Breadth-First Search (BFS) on a given graph.
+
+    Parameters
+    ----------
+    graph : nx.Graph
+        The graph on which BFS needs to be performed.
+    ci_map : dict
+        The dictionary mapping column info.
+    root_nodes : list
+        List of root nodes where BFS should start.
+
+    Returns
+    -------
+    tuple
+        Tuple containing the visited nodes and node-operation mapping.
+    """
+
     visited = set()
-    queue = [n for n in root_nodes]
+    queue = list(root_nodes)
     node_op_map = {}
 
     while queue:
@@ -327,11 +443,11 @@ def bfs_traversal_with_op_map(graph, ci_map, root_nodes):
         if node not in visited:
             visited.add(node)
 
-            parents = [n for n in graph.predecessors(node)]
+            parents = list(graph.predecessors(node))
             if len(parents) == 0:
                 # We need to start an operator chain with a column selector, so root nodes need to prepend a parent
                 #   column selection operator
-                parent_input = get_ci_column_selector(ci_map[node])
+                parent_input = _get_ci_column_selector(ci_map[node])
             else:
                 # Not a root node, so we need to gather the parent operators, and collect them up.
                 parent_input = None
@@ -342,85 +458,144 @@ def bfs_traversal_with_op_map(graph, ci_map, root_nodes):
                         parent_input = parent_input + node_op_map[parent]
 
             # Map the column info object to its NVT operator implementation
-            ops = ColumnInfoProcessingMap[type(ci_map[node])](ci_map[node], deps=[])
+            nvt_ops = ColumnInfoProcessingMap[type(ci_map[node])](ci_map[node], deps=[])
 
             # Chain ops together into a compound op
             node_op = parent_input
-            for op in ops:
-                node_op = node_op >> op
+            for nvt_op in nvt_ops:
+                node_op = node_op >> nvt_op
 
             # Set the op for this node to the compound operator
             node_op_map[node] = node_op
 
             # Add our neighbors to the queue
-            neighbors = [n for n in graph.neighbors(node)]
+            neighbors = list(graph.neighbors(node))
             for neighbor in neighbors:
                 queue.append(neighbor)
 
     return visited, node_op_map
 
 
-def coalesce_leaf_nodes(node_op_map, graph, preserve_re):
+def _coalesce_leaf_nodes(node_op_map: typing.Dict[typing.Any, typing.Any],
+                         graph: nx.Graph,
+                         preserve_re: typing.Optional[re.Pattern]) -> typing.Any:
+    """
+    Coalesce (combine) operations for the leaf nodes of a graph.
+
+    Parameters
+    ----------
+    node_op_map : dict
+        Dictionary mapping nodes to operations.
+    graph : nx.Graph
+        The graph to be processed.
+    preserve_re : regex
+        Regular expression for nodes to be preserved.
+
+    Returns
+    -------
+    obj
+        Coalesced workflow for leaf nodes.
+    """
     coalesced_workflow = None
-    for node, op in node_op_map.items():
-        neighbors = [n for n in graph.neighbors(node)]
+    for node, nvt_op in node_op_map.items():
+        neighbors = list(graph.neighbors(node))
         # Only add the operators for leaf nodes, or those explicitly preserved
         if len(neighbors) == 0 or (preserve_re and preserve_re.match(node)):
             if coalesced_workflow is None:
-                coalesced_workflow = op
+                coalesced_workflow = nvt_op
             else:
-                coalesced_workflow = coalesced_workflow + op
+                coalesced_workflow = coalesced_workflow + nvt_op
 
     return coalesced_workflow
 
 
-def coalesce_ops(graph, ci_map, preserve_re=None):
-    root_nodes = [node for node, in_degree in graph.in_degree() if in_degree == 0]
-    visited, node_op_map = bfs_traversal_with_op_map(graph, ci_map, root_nodes)
-    coalesced_workflow = coalesce_leaf_nodes(node_op_map, graph, preserve_re=preserve_re)
-
-    return coalesced_workflow
-
-
-def dataframe_input_schema_to_nvt_workflow(input_schema: DataFrameInputSchema, visualize=False) -> nvt.Workflow:
+def _coalesce_ops(graph: nx.Graph,
+                  ci_map: typing.Dict[typing.Any, ColumnInfo],
+                  preserve_re: typing.Optional[re.Pattern] = None) -> typing.Any:
     """
-    Converts an `input_schema` to a `nvt.Workflow` object
+    Coalesce (combine) operations for a graph.
 
-    First we aggregate all preprocessing steps, which we assume are independent of each other and can be run in
-    parallel.
+    Parameters
+    ----------
+    graph : nx.Graph
+        The graph to be processed.
+    ci_map : dict
+        The dictionary mapping column info.
+    preserve_re : regex, optional
+        Regular expression for nodes to be preserved.
 
-    Next we aggregate all column operations, which we assume are independent of each other and can be run in parallel
-    and pass them the updated schema from the preprocessing steps.
+    Returns
+    -------
+    obj
+        Coalesced workflow for the graph.
+    """
+
+    root_nodes = [node for node, in_degree in graph.in_degree() if in_degree == 0]
+    _, node_op_map = _bfs_traversal_with_op_map(graph, ci_map, root_nodes)  #
+    coalesced_workflow = _coalesce_leaf_nodes(node_op_map, graph, preserve_re=preserve_re)
+
+    return coalesced_workflow
+
+
+def dataframe_input_schema_to_nvt_workflow(input_schema: DataFrameInputSchema,
+                                           visualize: typing.Optional[bool] = False) -> nvt.Workflow:
+    """
+    Converts an `input_schema` to a `nvt.Workflow` object.
+
+    Parameters
+    ----------
+    input_schema : DataFrameInputSchema
+        Input schema which specifies how the DataFrame should be processed.
+    visualize : bool, optional
+        If True, the resulting workflow graph will be visualized.
+        Default is False.
+
+    Returns
+    -------
+    nvt.Workflow
+        A nvt.Workflow object representing the steps specified in the input schema.
+
+    Raises
+    ------
+    ValueError
+        If the input schema is empty.
+
+    Notes
+    -----
+    First we aggregate all preprocessing steps, which we assume are independent of each other
+    and can be run in parallel.
+
+    Next we aggregate all column operations, which we assume are independent of each other and
+    can be run in parallel and pass them the updated schema from the preprocessing steps.
     """
 
     if (input_schema is None or len(input_schema.column_info) == 0):
         raise ValueError("Input schema is empty")
 
     # Try to guess which output columns we'll produce
-    json_output_cols = resolve_json_output_columns(input_schema)
+    json_output_cols = _resolve_json_output_columns(input_schema)
 
     json_cols = input_schema.json_columns
-    column_info_objects = [ci for ci in input_schema.column_info]
+    column_info_objects = list(input_schema.column_info)
     if (json_cols is not None and len(json_cols) > 0):
         column_info_objects.append(
-            JSONFlattenInfo(
-                input_col_names=[c for c in json_cols],
-                # output_col_names=[name for name, _ in json_output_cols],
-                output_col_names=json_output_cols,
-                dtype="str",
-                name="json_info"))
+            JSONFlattenInfo(input_col_names=list(json_cols),
+                            output_col_names=json_output_cols,
+                            dtype="str",
+                            name="json_info"))
 
     column_info_map = {ci.name: ci for ci in column_info_objects}
 
-    graph = build_nx_dependency_graph(column_info_objects)
+    graph = _build_nx_dependency_graph(column_info_objects)
 
-    # Uncomment to print the computed: dependency layout
-    # from matplotlib import pyplot as plt
-    # pos = graphviz_layout(graph, prog='neato')
-    # nx.draw(graph, pos, with_labels=True, font_weight='bold')
-    # plt.show()
+    if os.getenv('MORPHEUS_NVT_VIS_DEBUG') is not None:
+        from matplotlib import pyplot as plt
+        from networkx.drawing.nx_pydot import graphviz_layout
+        pos = graphviz_layout(graph, prog='neato')
+        nx.draw(graph, pos, with_labels=True, font_weight='bold')
+        plt.show()
 
-    coalesced_workflow = coalesce_ops(graph, column_info_map, preserve_re=input_schema.preserve_columns)
+    coalesced_workflow = _coalesce_ops(graph, column_info_map, preserve_re=input_schema.preserve_columns)
     if (input_schema.row_filter is not None):
         coalesced_workflow = coalesced_workflow >> Filter(f=input_schema.row_filter)
 

@@ -12,7 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .extensions import register_morpheus_extensions
-from .mutate import MutateOp
 
-__all__ = ["MutateOp", "register_morpheus_extensions"]
+def register_morpheus_extensions():
+    from datetime import datetime
+
+    import merlin.dtypes.aliases as mn
+    from merlin.dtypes import register
+    from merlin.dtypes.mapping import DTypeMapping
+
+    morpheus_extension = DTypeMapping(mapping={
+        mn.datetime64: [datetime],
+    }, )
+
+    register("morpheus_ext", morpheus_extension)
