@@ -31,13 +31,10 @@ Use `--help` to display information about the autoencoder pipeline command line 
 ```
 morpheus run pipeline-ae --help
 
-Usage: morpheus run pipeline-ae [OPTIONS] COMMAND1 [ARGS]... [COMMAND2
-                                [ARGS]...]...
+Usage: morpheus run pipeline-ae [OPTIONS] COMMAND1 [ARGS]... [COMMAND2 [ARGS]...]...
 
-  Configure and run the pipeline. To configure the pipeline, list the stages
-  in the order that data should flow. The output of each stage will become the
-  input for the next stage. For example, to read, classify and write to a
-  file, the following stages could be used
+  Configure and run the pipeline. To configure the pipeline, list the stages in the order that data should flow. The output of each stage will become the input for the next stage. For example, to
+  read, classify and write to a file, the following stages could be used
 
   pipeline from-file --filename=my_dataset.json deserialize preprocess inf-triton --model_name=my_model
   --server_url=localhost:8001 filter --threshold=0.5 to-file --filename=classifications.json
@@ -49,49 +46,38 @@ Usage: morpheus run pipeline-ae [OPTIONS] COMMAND1 [ARGS]... [COMMAND2
   4. The following stages must come after an inference stage: `add-class`, `filter`, `gen-viz`
 
 Options:
-  --columns_file FILE             [default: ./morpheus/data/columns_ae_cloudtrail.txt]
-  --labels_file FILE              Specifies a file to read labels from in
-                                  order to convert class IDs into labels. A
-                                  label file is a simple text file where each
-                                  line corresponds to a label. If unspecified,
-                                  only a single output label is created for
-                                  FIL
-  --userid_column_name TEXT       Which column to use as the User ID.
-                                  [default: userIdentityaccountId; required]
-  --userid_filter TEXT            Specifying this value will filter all
-                                  incoming data to only use rows with matching
-                                  User IDs. Which column is used for the User
-                                  ID is specified by `userid_column_name`
-  --feature_scaler TEXT           Autoencoder feature scaler  [default:
-                                  standard]
-  --use_generic_model BOOLEAN     Whether to use a generic model when user does
-                                  not have minimum number of training rows
-                                  [default: False]
-  --viz_file FILE                 Save a visualization of the pipeline at the
-                                  specified location
+  --columns_file DATA FILE        [required]
+  --labels_file DATA FILE         Specifies a file to read labels from in order to convert class IDs into labels. A label file is a simple text file where each line corresponds to a label. If
+                                  unspecified, only a single output label is created for FIL
+  --userid_column_name TEXT       Which column to use as the User ID.  [default: userIdentityaccountId; required]
+  --userid_filter TEXT            Specifying this value will filter all incoming data to only use rows with matching User IDs. Which column is used for the User ID is specified by
+                                  `userid_column_name`
+  --feature_scaler [none|standard|gauss_rank]
+                                  Autoencoder feature scaler  [default: standard]
+  --use_generic_model             Whether to use a generic model when user does not have minimum number of training rows
+  --viz_file FILE                 Save a visualization of the pipeline at the specified location
   --help                          Show this message and exit.
 
 Commands:
-  add-class        Add detected classifications to each message
-  add-scores       Add probability scores to each message
-  buffer           (Deprecated) Buffer results
-  delay            (Deprecated) Delay results for a certain duration
-  filter           Filter message by a classification threshold
-  from-azure       Load messages from a Duo directory
-  from-cloudtrail  Load messages from a Cloudtrail directory
-  from-duo         Load messages from a Duo directory
-  gen-viz          (Deprecated) Write out vizualization data frames
-  inf-pytorch      Perform inference with PyTorch
-  inf-triton       Perform inference with Triton
-  monitor          Display throughput numbers at a specific point in the
-                   pipeline
-  preprocess       Convert messages to tokens
-  serialize        Include & exclude columns from messages
+  add-class        Add detected classifications to each message.
+  add-scores       Add probability scores to each message.
+  buffer           (Deprecated) Buffer results.
+  delay            (Deprecated) Delay results for a certain duration.
+  filter           Filter message by a classification threshold.
+  from-azure       Source stage is used to load AWS CloudTrail messages from a file and dumping the contents into the pipeline immediately. Useful for testing performance and accuracy of a pipeline.
+  from-cloudtrail  Load messages from a Cloudtrail directory.
+  from-duo         Source stage is used to load AWS CloudTrail messages from a file and dumping the contents into the pipeline immediately. Useful for testing performance and accuracy of a pipeline.
+  inf-pytorch      Perform inference with PyTorch.
+  inf-triton       Perform inference with Triton Inference Server.
+  monitor          Display throughput numbers at a specific point in the pipeline.
+  preprocess       Prepare Autoencoder input DataFrames for inference.
+  serialize        Include & exclude columns from messages.
   timeseries       Perform time series anomaly detection and add prediction.
-  to-file          Write all messages to a file
-  to-kafka         Write all messages to a Kafka cluster
-  train-ae         Deserialize source data from JSON
-  validate         Validates pipeline output against an expected output
+  to-file          Write all messages to a file.
+  to-kafka         Write all messages to a Kafka cluster.
+  train-ae         Train an Autoencoder model on incoming data.
+  trigger          Buffer data until previous stage has completed.
+  validate         Validate pipeline output for testing.
 ```
 The commands above correspond to the Morpheus stages that can be used to construct your DFP pipeline. Options are available to configure pipeline and stages.
 The following table shows mapping between the main Morpheus CLI commands and underlying Morpheus Python stage classes:
@@ -140,7 +126,7 @@ The `PreprocessAEStage` is responsible for creating a Morpheus message that cont
 **Write stage** - `WriteToFileStage` writes input data with inference results to an output file path.
 
 
-## CloudTrail DFP Pipeline
+## Running CloudTrail DFP Pipeline using CLI
 
 Run the following in your Morpheus container to start the CloudTrail DFP pipeline:
 
@@ -166,7 +152,7 @@ serialize \
 to-file --filename=./cloudtrail-dfp-detections.csv --overwrite
 ```
 
-## Using Morpheus Python API
+## Running CloudTrail DFP Pipeline using Python API
 
 The DFP pipelines can also be constructed and run via the Morpheus Python API. An [example](./run_cloudtrail_dfp.py) is included for the Cloudtrail DFP pipeline. The following are some commands to
 run the example.
