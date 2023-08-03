@@ -19,39 +19,45 @@ find_package(pybind11 REQUIRED)
 
 include(GoogleTest)
 
-add_library(
-    morpheus_test_utilities
-      test_utils/common.cpp
-)
+# add_library(
+#     morpheus_test_utilities
+#       test_utils/common.cpp
+# )
 
-target_link_libraries(
-  morpheus_test_utilities
-  PRIVATE
-    GTest::gtest
-    morpheus
-)
+# target_link_libraries(
+#   morpheus_test_utilities
+#   PRIVATE
+#     GTest::gtest
+#     morpheus
+# )
 
-function (add_morpheus_test TEST_NAME TEST_FILES)
+function (add_morpheus_test)
+  set(options)
+  set(oneValueArgs NAME)
+  set(multiValueArgs FILES)
+  cmake_parse_arguments(MORPHEUS_TEST "${options}"
+                        "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
   add_executable(
-    test_${TEST_NAME}
-    ${TEST_FILES}
+    test_${MORPHEUS_TEST_NAME}
+    test_utils/common.cpp
+    ${MORPHEUS_TEST_FILES}
   )
 
   target_link_libraries(
-    test_${TEST_NAME}
+    test_${MORPHEUS_TEST_NAME}
     PRIVATE
       GTest::gtest
       GTest::gtest_main
       matx::matx
       morpheus
-      morpheus_test_utilities
+      # morpheus_test_utilities
       pybind11::embed
   )
 
-  gtest_discover_tests(test_${TEST_NAME})
+  gtest_discover_tests(test_${MORPHEUS_TEST_NAME})
 
-  set_target_properties(test_${TEST_NAME}
+  set_target_properties(test_${MORPHEUS_TEST_NAME}
     PROPERTIES
       INSTALL_RPATH "$ORIGIN/.."
       CUDA_STANDARD 17
@@ -60,7 +66,7 @@ function (add_morpheus_test TEST_NAME TEST_FILES)
 
   install(
     TARGETS
-      test_${TEST_NAME}
+      test_${MORPHEUS_TEST_NAME}
     RUNTIME DESTINATION
       "${MORPHEUS_LIB_INSTALL_DIR}/tests"
     COMPONENT Wheel
@@ -68,52 +74,74 @@ function (add_morpheus_test TEST_NAME TEST_FILES)
 
 endfunction()
 
-add_morpheus_test(cuda
-  test_cuda.cu
+add_morpheus_test(
+  NAME cuda
+  FILES
+    test_cuda.cu
 )
 
-add_morpheus_test(data_loader
-  io/test_data_loader.cpp
-  io/test_data_loader_registry.cpp
-  io/test_loaders.cpp
+add_morpheus_test(
+  NAME data_loader
+  FILES
+    io/test_data_loader.cpp
+    io/test_data_loader_registry.cpp
+    io/test_loaders.cpp
 )
 
-add_morpheus_test(messages
-  messages/test_control_message.cpp
-  messages/test_dev_doc_ex3.cpp
-  messages/test_sliced_message_meta.cpp
+add_morpheus_test(
+  NAME messages
+  FILES
+    messages/test_control_message.cpp
+    messages/test_dev_doc_ex3.cpp
+    messages/test_sliced_message_meta.cpp
 )
 
-add_morpheus_test(modules
-  modules/test_data_loader_module.cpp
+add_morpheus_test(
+  NAME modules
+  FILES
+    modules/test_data_loader_module.cpp
 )
 
-add_morpheus_test(deserializers
-  test_deserializers.cpp
+add_morpheus_test(
+  NAME deserializers
+  FILES
+    test_deserializers.cpp
 )
 
-add_morpheus_test(dev_mem_info
-  test_dev_mem_info.cpp
+add_morpheus_test(
+  NAME dev_mem_info
+  FILES
+    test_dev_mem_info.cpp
 )
 
-add_morpheus_test(file_io
-  test_file_in_out.cpp
+add_morpheus_test(
+  NAME file_io
+  FILES
+    test_file_in_out.cpp
 )
 
-add_morpheus_test(matx
-  test_matx_util.cpp
+add_morpheus_test(
+  NAME matx
+  FILES
+    test_matx_util.cpp
 )
 
-add_morpheus_test(multi_slices
-  test_multi_slices.cpp
+add_morpheus_test(
+  NAME multi_slices
+  FILES
+    test_multi_slices.cpp
 )
 
-add_morpheus_test(tensor
-  test_tensor.cpp
+add_morpheus_test(
+  NAME tensor
+  FILES
+    test_tensor.cpp
 )
 
-add_morpheus_test(type_util
-  test_type_util.cpp
+add_morpheus_test(
+  NAME type_util
+  FILES
+    test_type_util.cpp
 )
 
 list(POP_BACK CMAKE_MESSAGE_CONTEXT)
