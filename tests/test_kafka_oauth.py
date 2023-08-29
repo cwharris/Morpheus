@@ -6,7 +6,7 @@ from morpheus.stages.output.compare_dataframe_stage import CompareDataFrameStage
 
 import cudf
 
-def test_kafka_oath(config):
+def test_kafka_oauth(config):
     print("hello")
 
     expected = cudf.DataFrame({ "a": "b" })
