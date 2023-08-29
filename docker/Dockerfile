@@ -85,6 +85,8 @@ RUN --mount=type=cache,id=apt,target=/var/cache/apt \
         libcurand-${CUDA_MAJOR_VER}-${CUDA_MINOR_VER} \
         libcusolver-${CUDA_MAJOR_VER}-${CUDA_MINOR_VER} \
         libnuma1 \
+        openjdk-11-jdk-headless \
+        openjdk-11-jre-headless \
         openssh-client \
         pkg-config \
         tar \
