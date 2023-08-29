@@ -21,7 +21,7 @@ services:
     container_name: morpheus-triton
     runtime: nvidia
     image: nvcr.io/nvidia/tritonserver:23.06-py3
-    command: tritonserver --model-repository=/models/triton-model-repo --exit-on-error=false ${TRITON_MODEL_ARGS}
+    command: tritonserver --model-repository=/models/triton-model-repo --exit-on-error=false ${TRITON_MODEL_ARGS:-}
     ports:
       - 8000:8000
       - 8001:8001
@@ -52,7 +52,15 @@ services:
     depends_on:
       - zookeeper
 
+  oauth:
+    image: ghcr.io/navikt/mock-oauth2-server:1.0.0
+    container_name: morpheus-oauth
+    ports:
+      - 8080
+    environment:
+      LOG_LEVEL: DEBUG
+
 networks:
   default:
-    external:
-      name: morpheus
+    name: morpheus
+    external: true
