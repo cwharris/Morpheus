@@ -16,4 +16,27 @@
 
 set -ex
 
-wget -O - http://oauth:8080/${1:-default}/.well-known/openid-configuration
+COMPOSE_FILE="${MORPHEUS_ROOT}/.devcontainer/docker-compose.yml"
+
+export DSN=postgres://hydra:secret@hydra-postgres:5432/hydra?sslmode=disable
+
+# Shut down prior runs so we can start them up in order
+docker compose -f $COMPOSE_FILE \
+    down \
+        hydra \
+        hydra-login \
+        hydra-postgres
+
+# Migrate Postgres
+docker compose -f $COMPOSE_FILE \
+    run \
+        hydra migrate sql --yes $DSN
+
+# start up hydra in order
+docker compose -f $COMPOSE_FILE \
+    up -d \
+        hydra-login
+
+docker compose -f $COMPOSE_FILE \
+    run --rm -it \
+        hydra-cli --help

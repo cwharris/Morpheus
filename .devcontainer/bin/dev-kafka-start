@@ -18,6 +18,10 @@ set -e
 
 COMPOSE_FILE="${MORPHEUS_ROOT}/.devcontainer/docker-compose.yml"
 
+if [[ ${1,,} = "oauth" ]]; then
+    export KAFKA_ALLOW_ANONYMOUS_LOGIN=no
+fi
+
 docker compose -f $COMPOSE_FILE up -d zookeeper kafka
-export ZOOKEEPER_HOST=$(docker compose -f $COMPOSE_FILE exec zookeper hostname -i)
-export KAFKA_HOST=$(docker compose -f $COMPOSE_FILE exec kafka hostname -i)
+ZOOKEEPER_HOST=$(docker compose -f $COMPOSE_FILE exec zookeeper hostname -i)
+KAFKA_HOST=$(docker compose -f $COMPOSE_FILE exec kafka hostname -i)

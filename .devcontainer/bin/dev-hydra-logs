@@ -18,4 +18,8 @@ set -ex
 
 COMPOSE_FILE="${MORPHEUS_ROOT}/.devcontainer/docker-compose.yml"
 
-docker compose -f $COMPOSE_FILE up -d oauth
+docker compose -f $COMPOSE_FILE \
+    logs \
+        hydra \
+        hydra-login \
+        hydra-postgres

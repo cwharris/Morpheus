@@ -16,6 +16,4 @@
 
 set -ex
 
-COMPOSE_FILE="${MORPHEUS_ROOT}/.devcontainer/docker-compose.yml"
-
-docker compose -f $COMPOSE_FILE logs oauth
+docker compose -f ${MORPHEUS_ROOT}/.devcontainer/docker-compose.yml stop hydra
