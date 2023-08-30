@@ -38,5 +38,7 @@ docker compose -f $COMPOSE_FILE \
         hydra-login
 
 docker compose -f $COMPOSE_FILE \
-    run --rm -it \
-        hydra-cli --help
+    run --rm -it hydra-cli
+
+
+# cat /etc/hydra/client-broker.json | hydra import oauth2-client

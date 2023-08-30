@@ -18,4 +18,4 @@ set -e
 
 COMPOSE_FILE="${MORPHEUS_ROOT}/.devcontainer/docker-compose.yml"
 
-docker compose -f $COMPOSE_FILE logs zookeeper kafka
+docker compose -f $COMPOSE_FILE logs kafka
