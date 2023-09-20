@@ -12,6 +12,7 @@ from morpheus.config import Config
 import cudf
 import mrc
 import typing
+import asyncio
 
 class MyFlatmapStage(SinglePortStage):
 
@@ -25,29 +26,30 @@ class MyFlatmapStage(SinglePortStage):
     def supports_cpp_node(self) -> bool:
         return False
 
-    def on_data(self, message: MultiMessage):
-        results = []
+    async def on_data_async_gen(self, message: MultiMessage):
         for count in message.get_meta("count").to_pandas():
             for i in range(count):
+                await asyncio.sleep(1)
                 new_df = cudf.DataFrame({"value": [i]})
                 new_meta = MessageMeta(new_df)
                 new_message = MultiMessage(meta=new_meta)
-                results.append(new_message)
-        return results
+                yield new_message
 
     def _build_single(self, builder: mrc.Builder, input: StreamPair) -> StreamPair:
         [input_node, input_type] = input
-        node = builder.make_node(self.unique_name, mrc.operators.flatmap(self.on_data))
+        node = builder.make_node(self.unique_name, mrc.operators.flatmap_async(self.on_data_async_gen))
         builder.make_edge(input_node, node)
         return node, input_type
 
 def test_flatmap():
 
-    input_df = cudf.DataFrame({ "count": [5] })
+    input_df_a = cudf.DataFrame({ "count": [5] })
+    input_df_b = cudf.DataFrame({ "count": [5] })
+    input_df_c = cudf.DataFrame({ "count": [5] })
     config = Config()
     pipeline = LinearPipeline(config)
 
-    pipeline.set_source(InMemorySourceStage(config, [input_df]))
+    pipeline.set_source(InMemorySourceStage(config, [input_df_a, input_df_b, input_df_c]))
     pipeline.add_stage(DeserializeStage(config))
     pipeline.add_stage(MyFlatmapStage(config))
     pipeline.add_stage(SerializeStage(config))
