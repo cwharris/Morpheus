@@ -27,13 +27,13 @@ class MyFlatmapStage(SinglePortStage):
         return False
 
     async def on_data_async_gen(self, message: MultiMessage):
-        for count in message.get_meta("count").to_pandas():
-            for i in range(count):
-                await asyncio.sleep(1)
-                new_df = cudf.DataFrame({"value": [i]})
-                new_meta = MessageMeta(new_df)
-                new_message = MultiMessage(meta=new_meta)
-                yield new_message
+        for duration in message.get_meta("sleep").to_pandas():
+            await asyncio.sleep(duration)
+            new_series = message.get_meta("value")
+            new_df = cudf.DataFrame({"value": new_series})
+            new_meta = MessageMeta(new_df)
+            new_message = MultiMessage(meta=new_meta)
+            yield new_message
 
     def _build_single(self, builder: mrc.Builder, input: StreamPair) -> StreamPair:
         [input_node, input_type] = input
@@ -43,9 +43,9 @@ class MyFlatmapStage(SinglePortStage):
 
 def test_flatmap():
 
-    input_df_a = cudf.DataFrame({ "count": [5] })
-    input_df_b = cudf.DataFrame({ "count": [5] })
-    input_df_c = cudf.DataFrame({ "count": [5] })
+    input_df_a = cudf.DataFrame({ "sleep": [1], "value": [0] })
+    input_df_b = cudf.DataFrame({ "sleep": [2], "value": [1] })
+    input_df_c = cudf.DataFrame({ "sleep": [1], "value": [2] })
     config = Config()
     pipeline = LinearPipeline(config)
 
