@@ -17,7 +17,7 @@
 
 #pragma once
 #include "py_llm_node.hpp"
-#include "pycoro/pycoro.hpp"
+#include <pymrc/coro.hpp>
 
 #include "morpheus/export.h"
 #include "morpheus/llm/input_map.hpp"
@@ -156,13 +156,13 @@ class PythonAsyncioScheduler : public mrc::coroutines::Scheduler
         LOG(INFO) << "CoroutineRunnable::run() > Calling run_until_complete() on main_task()";
 
         // Use the BoostFibersMainPyAwaitable to allow fibers to be progressed
-        loop.attr("run_until_complete")(mrc::pycoro::BoostFibersMainPyAwaitable(std::move(task)));
+        loop.attr("run_until_complete")(mrc::pymrc::coro::BoostFibersMainPyAwaitable(std::move(task)));
 
         LOG(INFO)
             << "CoroutineRunnable::run() > run_until_complete() returned. Waiting for all enqueued tasks to complete ";
 
         // Now wait until all tasks have been processed
-        loop.attr("run_until_complete")(mrc::pycoro::BoostFibersMainPyAwaitable(
+        loop.attr("run_until_complete")(mrc::pymrc::coro::BoostFibersMainPyAwaitable(
             this->get_task_container().garbage_collect_and_yield_until_empty()));
     }
 

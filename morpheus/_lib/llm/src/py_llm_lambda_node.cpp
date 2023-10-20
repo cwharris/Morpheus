@@ -17,7 +17,7 @@
 
 #include "py_llm_lambda_node.hpp"
 
-#include "pycoro/pycoro.hpp"
+#include <pymrc/coro.hpp>
 
 #include "morpheus/llm/llm_context.hpp"
 #include "morpheus/llm/llm_node_base.hpp"
@@ -116,7 +116,7 @@ Task<std::shared_ptr<LLMContext>> PyLLMLambdaNode::execute(std::shared_ptr<LLMCo
     mrc::pymrc::PyHolder o_result;
     {
         pybind11::gil_scoped_release nogil;
-        o_result = co_await mrc::pycoro::PyTaskToCppAwaitable(std::move(o_task));
+        o_result = co_await mrc::pymrc::coro::PyTaskToCppAwaitable(std::move(o_task));
         DCHECK_EQ(PyGILState_Check(), 0) << "Should not have the GIL after returning from co_await";
     }
 

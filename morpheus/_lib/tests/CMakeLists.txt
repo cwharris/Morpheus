@@ -19,8 +19,6 @@ find_package(pybind11 REQUIRED)
 
 include(GoogleTest)
 
-add_subdirectory(pycoro)
-
 # Cuda Test
 
 add_executable(test_cuda

@@ -17,7 +17,7 @@
 
 #include "py_llm_node_base.hpp"
 
-#include "pycoro/pycoro.hpp"
+#include <pymrc/coro.hpp>
 
 #include "morpheus/llm/llm_context.hpp"
 #include "morpheus/llm/llm_engine.hpp"

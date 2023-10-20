@@ -17,7 +17,7 @@
 
 #include "py_llm_task_handler.hpp"
 
-#include "pycoro/pycoro.hpp"
+#include <pymrc/coro.hpp>
 
 #include "morpheus/llm/llm_context.hpp"
 

@@ -21,7 +21,6 @@
 #include "./include/py_llm_task_handler.hpp"
 #include "py_llm_engine_stage.hpp"
 #include "py_llm_lambda_node.hpp"
-#include "pycoro/pycoro.hpp"  // IWYU pragma: keep
 
 #include "morpheus/llm/input_map.hpp"
 #include "morpheus/llm/llm_context.hpp"
@@ -47,7 +46,8 @@
 #include <pybind11/pybind11.h>    // for arg, init, class_, module_, str_attr_accessor, PYBIND11_MODULE, pybind11
 #include <pybind11/pytypes.h>     // for dict, sequence
 #include <pybind11/stl.h>         // IWYU pragma: keep
-#include <pymrc/utils.hpp>        // for pymrc::import
+#include <pymrc/coro.hpp> // IWYU pragma: keep
+#include <pymrc/utils.hpp>  // for pymrc::import
 
 #include <memory>
 #include <sstream>
@@ -72,9 +72,6 @@ PYBIND11_MODULE(llm, _module)
 
     // Load the cudf helpers
     CudfHelper::load();
-
-    // Import the pycoro module
-    mrc::pymrc::import(_module, "morpheus._lib.pycoro");
 
     // Import the messages module
     mrc::pymrc::import(_module, "morpheus._lib.messages");
