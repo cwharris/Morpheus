@@ -18,7 +18,6 @@
 #pragma once
 
 #include "py_llm_node.hpp"
-#include "pymrc/asyncio_runnable.hpp"
 
 #include "morpheus/export.h"
 #include "morpheus/llm/input_map.hpp"
@@ -55,6 +54,7 @@
 #include <pybind11/gil.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
+#include <pymrc/asyncio_runnable.hpp>
 #include <pymrc/asyncio_scheduler.hpp>
 #include <pymrc/coro.hpp>
 #include <pymrc/types.hpp>
