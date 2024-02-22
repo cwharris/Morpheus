@@ -21,6 +21,7 @@
 #include "morpheus/objects/file_types.hpp"  // for FileTypes
 #include "morpheus/stages/add_classification.hpp"
 #include "morpheus/stages/add_scores.hpp"
+#include "morpheus/stages/basic_inference_stage.hpp"
 #include "morpheus/stages/deserialize.hpp"
 #include "morpheus/stages/file_source.hpp"
 #include "morpheus/stages/filter_detection.hpp"
@@ -259,6 +260,14 @@ PYBIND11_MODULE(stages, _module)
              py::arg("file_type")         = FileTypes::Auto,
              py::arg("include_index_col") = true,
              py::arg("flush")             = false);
+
+    py::class_<mrc::segment::Object<BasicInferenceStage>,
+               mrc::segment::ObjectProperties,
+               std::shared_ptr<mrc::segment::Object<BasicInferenceStage>>>(
+        _module, "BasicInferenceStage", py::multiple_inheritance())
+        .def(py::init<>(&BasicInferenceStage::init),
+             py::arg("builder"),
+             py::arg("name"));
 
     _module.attr("__version__") =
         MRC_CONCAT_STR(morpheus_VERSION_MAJOR << "." << morpheus_VERSION_MINOR << "." << morpheus_VERSION_PATCH);
