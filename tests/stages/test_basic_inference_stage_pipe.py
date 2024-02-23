@@ -22,9 +22,6 @@ from _utils import TEST_DIRS
 from _utils import assert_results
 from _utils.dataset_manager import DatasetManager
 from morpheus.config import Config
-from morpheus.llm import LLMEngine
-from morpheus.llm.nodes.extracter_node import ExtracterNode
-from morpheus.llm.task_handlers.simple_task_handler import SimpleTaskHandler
 from morpheus.messages import ControlMessage
 from morpheus.pipeline.linear_pipeline import LinearPipeline
 from morpheus.stages.input.in_memory_source_stage import InMemorySourceStage
@@ -40,11 +37,9 @@ def test_pipeline(config: Config, dataset_cudf: DatasetManager):
     input_df = dataset_cudf[test_data]
     expected_df = input_df.copy(deep=True)
 
-    task_payload = {"task_type": "llm_engine", "task_dict": {"input_keys": ['log']}}
     pipe = LinearPipeline(config)
     pipe.set_source(InMemorySourceStage(config, dataframes=[input_df]))
-    pipe.add_stage(
-        DeserializeStage(config, message_type=ControlMessage, task_type="llm_engine", task_payload=task_payload))
+    pipe.add_stage(DeserializeStage(config, message_type=ControlMessage))
     pipe.add_stage(BasicInferenceStage(config))
     sink = pipe.add_stage(CompareDataFrameStage(config, compare_df=expected_df))
 
