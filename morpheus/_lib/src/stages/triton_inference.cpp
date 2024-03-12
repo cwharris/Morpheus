@@ -37,6 +37,7 @@
 #include <cuda_runtime.h>  // for cudaMemcpy, cudaMemcpy2D, cudaMemcpyDeviceToHost, cudaMemcpyHostToDevice
 #include <glog/logging.h>
 #include <http_client.h>
+#include <mrc/coroutines/when_all.hpp>
 #include <mrc/cuda/common.hpp>  // for MRC_CHECK_CUDA
 #include <nlohmann/json.hpp>
 #include <rmm/cuda_stream_view.hpp>  // for cuda_stream_per_thread
@@ -166,8 +167,10 @@ struct TritonInferOperation
 
     void await_suspend(std::coroutine_handle<> handle)
     {
+        std::cout << "infer suspend" << std::endl;
         CHECK_TRITON(m_client.async_infer(
             [this, handle](triton::client::InferResult* result) {
+                std::cout << "infer callback" << std::endl;
                 m_result.reset(result);
                 handle();
             },
@@ -182,9 +185,9 @@ struct TritonInferOperation
     }
 
     ITritonClient& m_client;
-    triton::client::InferOptions const& m_options;
-    std::vector<TritonInferInput> const& m_inputs;
-    std::vector<TritonInferRequestedOutput> const& m_outputs;
+    triton::client::InferOptions m_options;
+    std::vector<TritonInferInput> m_inputs;
+    std::vector<TritonInferRequestedOutput> m_outputs;
     std::unique_ptr<triton::client::InferResult> m_result;
 };
 
@@ -348,7 +351,8 @@ TritonInferenceClientSession::TritonInferenceClientSession(std::shared_ptr<ITrit
 
     bool is_model_ready = false;
     CHECK_TRITON(m_client->is_model_ready(&is_model_ready, this->m_model_name));
-    if (not is_model_ready) {
+    if (not is_model_ready)
+    {
         throw std::runtime_error("Model is not ready");
     }
 
@@ -509,6 +513,8 @@ mrc::coroutines::Task<TensorMap> TritonInferenceClientSession::infer(TensorMap&&
 
     // process all batches
 
+    std::vector<Task<std::unique_ptr<triton::client::InferResult>>> inference_tasks;
+
     for (TensorIndex start = 0; start < element_count; start += m_max_batch_size)
     {
         TensorIndex stop = std::min(start + m_max_batch_size, static_cast<TensorIndex>(element_count));
@@ -542,7 +548,21 @@ mrc::coroutines::Task<TensorMap> TritonInferenceClientSession::infer(TensorMap&&
 
         auto options = triton::client::InferOptions(m_model_name);
 
-        auto results = co_await TritonInferOperation(*m_client, options, inference_inputs, outputs);
+        auto operation =
+            TritonInferOperation(*m_client, std::move(options), std::move(inference_inputs), std::move(outputs));
+
+        inference_tasks.emplace_back([](auto operation) -> Task<std::unique_ptr<triton::client::InferResult>> {
+            co_return co_await operation;
+        }(std::move(operation)));
+    }
+
+    auto inference_results = co_await mrc::coroutines::when_all(std::move(inference_tasks));
+
+    for (TensorIndex start = 0, i = 0; start < element_count; start += m_max_batch_size, i++)
+    {
+        TensorIndex stop = std::min(start + m_max_batch_size, static_cast<TensorIndex>(element_count));
+
+        auto& results = inference_results[i].return_value();
 
         // verify batch results and copy to full output tensors
 
