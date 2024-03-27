@@ -1,0 +1,9 @@
+{{#inject}}
+(()=>{
+    return {
+        "error": {
+            "code": 500
+        }
+    };
+})();
+{{/inject}}

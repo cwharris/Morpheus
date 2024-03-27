@@ -100,6 +100,7 @@ target_link_libraries(morpheus
     mrc::pymrc
     RDKAFKA::RDKAFKA
     TritonClient::httpclient_static
+    TritonClient::grpcclient_static
 )
 
 target_include_directories(morpheus

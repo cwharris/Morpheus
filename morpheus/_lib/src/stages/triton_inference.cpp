@@ -17,6 +17,10 @@
 
 #include "morpheus/stages/triton_inference.hpp"
 
+#include "common.h"
+#include "grpc_client.h"
+#include "grpc_service.pb.h"
+#include "model_config.pb.h"
 #include "mrc/segment/builder.hpp"
 #include "mrc/segment/object.hpp"
 
@@ -264,32 +268,227 @@ HttpTritonClient::HttpTritonClient(std::string server_url)
     m_client = std::move(client);
 }
 
-triton::client::Error HttpTritonClient::is_server_live(bool* live)
+bool HttpTritonClient::is_server_live()
 {
-    return m_client->IsServerLive(live);
+    bool live;
+    CHECK_TRITON(m_client->IsServerLive(&live));
+    return live;
 }
 
-triton::client::Error HttpTritonClient::is_server_ready(bool* ready)
+bool HttpTritonClient::is_server_ready()
 {
-    return m_client->IsServerReady(ready);
+    bool ready;
+    CHECK_TRITON(m_client->IsServerReady(&ready));
+    return ready;
 }
 
-triton::client::Error HttpTritonClient::is_model_ready(bool* ready, std::string& model_name)
+bool HttpTritonClient::is_model_ready(std::string& model_name)
 {
-    return m_client->IsModelReady(ready, model_name);
+    bool ready;
+    CHECK_TRITON(m_client->IsModelReady(&ready, model_name));
+    return ready;
 }
 
-triton::client::Error HttpTritonClient::model_config(std::string* model_config, std::string& model_name)
+TritonModelInfo HttpTritonClient::model_info(std::string& model_name)
 {
-    return m_client->ModelConfig(model_config, model_name);
-}
+    std::string model_metadata_json;
+    CHECK_TRITON(m_client->ModelMetadata(&model_metadata_json, model_name));
 
-triton::client::Error HttpTritonClient::model_metadata(std::string* model_metadata, std::string& model_name)
-{
-    return m_client->ModelMetadata(model_metadata, model_name);
+    auto model_metadata = nlohmann::json::parse(model_metadata_json);
+
+    std::string model_config_json;
+    CHECK_TRITON(m_client->ModelConfig(&model_config_json, model_name));
+    auto model_config = nlohmann::json::parse(model_config_json);
+
+    std::vector<TritonInOut> model_inputs;
+    std::vector<TritonInOut> model_outputs;
+
+    TensorIndex max_batch_size;
+
+    if (model_config.contains("max_batch_size"))
+    {
+        max_batch_size = model_config.at("max_batch_size").get<TensorIndex>();
+    }
+
+    for (auto const& input : model_metadata.at("inputs"))
+    {
+        auto shape = input.at("shape").get<ShapeType>();
+
+        auto dtype = DType::from_triton(input.at("datatype").get<std::string>());
+
+        size_t bytes = dtype.item_size();
+
+        for (auto& y : shape)
+        {
+            if (y == -1)
+            {
+                y = max_batch_size;
+            }
+
+            bytes *= y;
+        }
+
+        auto name = input.at("name").get<std::string>();
+
+        model_inputs.push_back(TritonInOut{name, bytes, dtype, shape, "", 0});
+    }
+
+    for (auto const& output : model_metadata.at("outputs"))
+    {
+        auto shape = output.at("shape").get<ShapeType>();
+
+        auto dtype = DType::from_triton(output.at("datatype").get<std::string>());
+
+        size_t bytes = dtype.item_size();
+
+        for (auto& y : shape)
+        {
+            if (y == -1)
+            {
+                y = max_batch_size;
+            }
+
+            bytes *= y;
+        }
+
+        model_outputs.push_back(TritonInOut{output.at("name").get<std::string>(), bytes, dtype, shape, "", 0});
+    }
+
+    return TritonModelInfo{std::move(model_inputs), std::move(model_outputs), max_batch_size};
 }
 
 triton::client::Error HttpTritonClient::async_infer(triton::client::InferenceServerHttpClient::OnCompleteFn callback,
+                                                    const triton::client::InferOptions& options,
+                                                    const std::vector<TritonInferInput>& inputs,
+                                                    const std::vector<TritonInferRequestedOutput>& outputs)
+{
+    std::vector<std::unique_ptr<triton::client::InferInput>> inference_inputs;
+    std::vector<triton::client::InferInput*> inference_input_ptrs;
+
+    for (auto& input : inputs)
+    {
+        triton::client::InferInput* inference_input_ptr;
+        triton::client::InferInput::Create(&inference_input_ptr, input.name, input.shape, input.type);
+
+        inference_input_ptr->AppendRaw(input.data);
+
+        inference_input_ptrs.emplace_back(inference_input_ptr);
+        inference_inputs.emplace_back(inference_input_ptr);
+    }
+
+    std::vector<std::unique_ptr<const triton::client::InferRequestedOutput>> inference_outputs;
+    std::vector<const triton::client::InferRequestedOutput*> inference_output_ptrs;
+
+    for (auto& output : outputs)
+    {
+        triton::client::InferRequestedOutput* inference_output_ptr;
+        triton::client::InferRequestedOutput::Create(&inference_output_ptr, output.name);
+        inference_output_ptrs.emplace_back(inference_output_ptr);
+        inference_outputs.emplace_back(inference_output_ptr);
+    }
+
+    return m_client->AsyncInfer(
+        [&inference_inputs, &inference_outputs, callback](triton::client::InferResult* result) {
+            callback(result);
+        },
+        options,
+        inference_input_ptrs,
+        inference_output_ptrs);
+}
+
+GrpcTritonClient::GrpcTritonClient(std::string server_url)
+{
+    std::unique_ptr<triton::client::InferenceServerGrpcClient> client;
+
+    CHECK_TRITON(triton::client::InferenceServerGrpcClient::Create(&client, server_url, false));
+
+    m_client = std::move(client);
+}
+
+bool GrpcTritonClient::is_server_live()
+{
+    bool live;
+    CHECK_TRITON(this->m_client->IsServerLive(&live));
+    return live;
+}
+
+bool GrpcTritonClient::is_server_ready()
+{
+    bool ready;
+    CHECK_TRITON(this->m_client->IsServerReady(&ready));
+    return ready;
+}
+
+bool GrpcTritonClient::is_model_ready(std::string& model_name)
+{
+    bool ready;
+    CHECK_TRITON(this->m_client->IsModelReady(&ready, model_name));
+    return ready;
+}
+
+TritonModelInfo GrpcTritonClient::model_info(std::string& model_name)
+{
+    inference::ModelConfigResponse config_response;
+    inference::ModelMetadataResponse metadata_response;
+
+    CHECK_TRITON(m_client->ModelConfig(&config_response, model_name));
+    CHECK_TRITON(m_client->ModelMetadata(&metadata_response, model_name));
+
+    auto max_batch_size = config_response.config().max_batch_size();
+
+    std::vector<TritonInOut> model_inputs;
+    std::vector<TritonInOut> model_outputs;
+
+    for (auto i = 0; i < metadata_response.inputs_size(); i++)
+    {
+        auto& input      = metadata_response.inputs(i);
+        auto shape_begin = input.shape().begin();
+        auto shape_end   = input.shape().end();
+        auto shape       = std::vector<int>(shape_begin, shape_end);
+        auto dtype       = DType::from_triton(input.datatype());
+
+        size_t bytes = dtype.item_size();
+
+        for (auto& y : shape)
+        {
+            if (y == -1)
+            {
+                y = max_batch_size;
+            }
+
+            bytes *= y;
+        }
+
+        model_inputs.push_back(TritonInOut{input.name(), bytes, dtype, shape, "", 0});
+    }
+
+    for (auto i = 0; i < metadata_response.outputs_size(); i++)
+    {
+        auto& output     = metadata_response.outputs(i);
+        auto shape_begin = output.shape().begin();
+        auto shape_end   = output.shape().end();
+        auto shape       = std::vector<int>(shape_begin, shape_end);
+        auto dtype       = DType::from_triton(output.datatype());
+
+        size_t bytes = dtype.item_size();
+
+        for (auto& y : shape)
+        {
+            if (y == -1)
+            {
+                y = max_batch_size;
+            }
+
+            bytes *= y;
+        }
+
+        model_outputs.push_back(TritonInOut{output.name(), bytes, dtype, shape, "", 0});
+    }
+
+    return TritonModelInfo{std::move(model_inputs), std::move(model_outputs), max_batch_size};
+}
+
+triton::client::Error GrpcTritonClient::async_infer(triton::client::InferenceServerGrpcClient::OnCompleteFn callback,
                                                     const triton::client::InferOptions& options,
                                                     const std::vector<TritonInferInput>& inputs,
                                                     const std::vector<TritonInferRequestedOutput>& outputs)
@@ -335,87 +534,26 @@ TritonInferenceClientSession::TritonInferenceClientSession(std::shared_ptr<ITrit
 {
     // Now load the input/outputs for the model
 
-    bool is_server_live = false;
-    CHECK_TRITON(m_client->is_server_live(&is_server_live));
-    if (not is_server_live)
+    if (not m_client->is_server_live())
     {
         throw std::runtime_error("Server is not live");
     }
 
-    bool is_server_ready = false;
-    CHECK_TRITON(m_client->is_server_ready(&is_server_ready));
-    if (not is_server_ready)
+    if (not m_client->is_server_ready())
     {
         throw std::runtime_error("Server is not ready");
     }
 
-    bool is_model_ready = false;
-    CHECK_TRITON(m_client->is_model_ready(&is_model_ready, this->m_model_name));
-    if (not is_model_ready)
+    if (not m_client->is_model_ready(this->m_model_name))
     {
         throw std::runtime_error("Model is not ready");
     }
 
-    std::string model_metadata_json;
-    CHECK_TRITON(m_client->model_metadata(&model_metadata_json, this->m_model_name));
+    auto info = m_client->model_info(this->m_model_name);
 
-    auto model_metadata = nlohmann::json::parse(model_metadata_json);
-
-    std::string model_config_json;
-    CHECK_TRITON(m_client->model_config(&model_config_json, this->m_model_name));
-    auto model_config = nlohmann::json::parse(model_config_json);
-
-    if (model_config.contains("max_batch_size"))
-    {
-        m_max_batch_size = model_config.at("max_batch_size").get<TensorIndex>();
-    }
-
-    for (auto const& input : model_metadata.at("inputs"))
-    {
-        auto shape = input.at("shape").get<ShapeType>();
-
-        auto dtype = DType::from_triton(input.at("datatype").get<std::string>());
-
-        size_t bytes = dtype.item_size();
-
-        for (auto& y : shape)
-        {
-            if (y == -1)
-            {
-                y = m_max_batch_size;
-            }
-
-            bytes *= y;
-        }
-
-        m_model_inputs.push_back(TritonInOut{input.at("name").get<std::string>(),
-                                             bytes,
-                                             DType::from_triton(input.at("datatype").get<std::string>()),
-                                             shape,
-                                             "",
-                                             0});
-    }
-
-    for (auto const& output : model_metadata.at("outputs"))
-    {
-        auto shape = output.at("shape").get<ShapeType>();
-
-        auto dtype = DType::from_triton(output.at("datatype").get<std::string>());
-
-        size_t bytes = dtype.item_size();
-
-        for (auto& y : shape)
-        {
-            if (y == -1)
-            {
-                y = m_max_batch_size;
-            }
-
-            bytes *= y;
-        }
-
-        m_model_outputs.push_back(TritonInOut{output.at("name").get<std::string>(), bytes, dtype, shape, "", 0});
-    }
+    m_model_inputs   = std::move(info.inputs);
+    m_model_outputs  = std::move(info.outputs);
+    m_max_batch_size = info.max_batch_size;
 }
 
 std::map<std::string, std::string> TritonInferenceClientSession::get_input_mappings(
@@ -751,7 +889,7 @@ std::shared_ptr<mrc::segment::Object<InferenceClientStage>> InferenceClientStage
     std::map<std::string, std::string> input_mapping,
     std::map<std::string, std::string> output_mapping)
 {
-    auto triton_client           = std::make_unique<HttpTritonClient>(server_url);
+    auto triton_client           = std::make_unique<GrpcTritonClient>(server_url);
     auto triton_inference_client = std::make_unique<TritonInferenceClient>(std::move(triton_client), model_name);
     auto stage                   = builder.construct_object<InferenceClientStage>(
         name, std::move(triton_inference_client), model_name, needs_logits, input_mapping, output_mapping);

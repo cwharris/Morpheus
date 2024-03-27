@@ -23,6 +23,7 @@
 #include "morpheus/objects/triton_in_out.hpp"
 #include "morpheus/types.hpp"
 
+#include <grpc_client.h>
 #include <http_client.h>
 #include <mrc/coroutines/async_generator.hpp>
 #include <mrc/coroutines/scheduler.hpp>
@@ -31,7 +32,7 @@
 #include <mrc/segment/object.hpp>
 #include <pybind11/pybind11.h>
 #include <pymrc/asyncio_runnable.hpp>
-#include <stdint.h>
+#include <cstdint>
 // IWYU pragma: no_include "rxcpp/sources/rx-iterate.hpp"
 
 #include <map>
@@ -57,18 +58,23 @@ struct MORPHEUS_EXPORT TritonInferRequestedOutput
     std::string name;
 };
 
+struct MORPHEUS_EXPORT TritonModelInfo
+{
+    std::vector<TritonInOut> inputs;
+    std::vector<TritonInOut> outputs;
+    TensorIndex max_batch_size;
+};
+
 class MORPHEUS_EXPORT ITritonClient
 {
   public:
-    virtual triton::client::Error is_server_live(bool* live) = 0;
+    virtual bool is_server_live() = 0;
 
-    virtual triton::client::Error is_server_ready(bool* ready) = 0;
+    virtual bool is_server_ready() = 0;
 
-    virtual triton::client::Error is_model_ready(bool* ready, std::string& model_name) = 0;
+    virtual bool is_model_ready(std::string& model_name) = 0;
 
-    virtual triton::client::Error model_metadata(std::string* model_metadata, std::string& model_name) = 0;
-
-    virtual triton::client::Error model_config(std::string* model_config, std::string& model_name) = 0;
+    virtual TritonModelInfo model_info(std::string& model_name) = 0;
 
     virtual triton::client::Error async_infer(triton::client::InferenceServerHttpClient::OnCompleteFn callback,
                                               const triton::client::InferOptions& options,
@@ -104,17 +110,38 @@ class MORPHEUS_EXPORT HttpTritonClient : public ITritonClient
   public:
     HttpTritonClient(std::string server_url);
 
-    triton::client::Error is_server_live(bool* live) override;
+    bool is_server_live() override;
 
-    triton::client::Error is_server_ready(bool* ready) override;
+    bool is_server_ready() override;
 
-    triton::client::Error is_model_ready(bool* ready, std::string& model_name) override;
+    bool is_model_ready(std::string& model_name) override;
 
-    triton::client::Error model_config(std::string* model_config, std::string& model_name) override;
-
-    triton::client::Error model_metadata(std::string* model_metadata, std::string& model_name) override;
+    TritonModelInfo model_info(std::string& model_name) override;
 
     triton::client::Error async_infer(triton::client::InferenceServerHttpClient::OnCompleteFn callback,
+                                      const triton::client::InferOptions& options,
+                                      const std::vector<TritonInferInput>& inputs,
+                                      const std::vector<TritonInferRequestedOutput>& outputs) override;
+};
+
+class MORPHEUS_EXPORT GrpcTritonClient : public ITritonClient
+{
+  private:
+    std::unique_ptr<triton::client::InferenceServerGrpcClient> m_client;
+    static bool is_default_grpc_port(std::string& server_url);
+
+  public:
+    GrpcTritonClient(std::string server_url);
+
+    bool is_server_live() override;
+
+    bool is_server_ready() override;
+
+    bool is_model_ready(std::string& model_name) override;
+
+    TritonModelInfo model_info(std::string& model_name) override;
+
+    triton::client::Error async_infer(triton::client::InferenceServerGrpcClient::OnCompleteFn callback,
                                       const triton::client::InferOptions& options,
                                       const std::vector<TritonInferInput>& inputs,
                                       const std::vector<TritonInferRequestedOutput>& outputs) override;
@@ -203,7 +230,7 @@ class MORPHEUS_EXPORT InferenceClientStage
     std::map<std::string, std::string> m_output_mapping;
     std::shared_mutex m_session_mutex;
 
-    int32_t m_retry_max = 10;
+    int32_t m_retry_max = 0;
 };
 
 /****** InferenceClientStageInferenceProxy******************/
