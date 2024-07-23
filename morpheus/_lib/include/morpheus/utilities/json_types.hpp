@@ -114,24 +114,3 @@ class MORPHEUS_EXPORT json_list_t : public morpheus::utilities::json_t
 {};
 // NOLINTEND(readability-identifier-naming)
 }  // namespace morpheus::utilities
-
-namespace nlohmann {
-// NOLINTBEGIN(readability-identifier-naming)
-
-/*
-    Derived class from basic_json to allow for custom type names. Use this if the return type would always be an object
-   (i.e. dict[str, Any] in python)
-*/
-// NLOHMANN_BASIC_JSON_TPL_DECLARATION
-class json_dict : public basic_json<>
-{};
-
-/*
-    Derived class from basic_json to allow for custom type names. Use this if the return type would always be a list
-   (i.e. list[Any] in python)
-*/
-class json_list : public basic_json<>
-{};
-
-// NOLINTEND(readability-identifier-naming)
-}  // namespace nlohmann
