@@ -44,8 +44,7 @@
 #include <boost/beast/version.hpp>
 #include <boost/intrusive/detail/algo_type.hpp>
 #include <boost/intrusive/link_mode.hpp>
-#include <boost/system/detail/errc.hpp>
-#include <boost/system/detail/error_code.hpp>
+#include <boost/system/error_code.hpp>
 #include <glog/logging.h>
 #include <nlohmann/json.hpp>
 #include <pybind11/gil.h>

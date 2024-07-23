@@ -23,7 +23,7 @@
 #include <boost/asio/ip/tcp.hpp>       // for tcp, tcp::acceptor, tcp::endpoint, tcp::socket
 #include <boost/beast/core/error.hpp>  // for error_code
 #include <boost/beast/http/verb.hpp>   // for verb
-#include <boost/system/detail/error_code.hpp>
+#include <boost/system/error_code.hpp>
 #include <pybind11/pytypes.h>  // for pybind11::function
 
 #include <atomic>      // for atomic

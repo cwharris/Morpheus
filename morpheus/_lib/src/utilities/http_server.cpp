@@ -34,6 +34,7 @@
 #include <boost/beast/core/error.hpp>         // for error_code
 #include <boost/beast/core/flat_buffer.hpp>   // for flat_buffer
 #include <boost/beast/core/rate_policy.hpp>
+#include <boost/beast/core/string_type.hpp>
 #include <boost/beast/core/tcp_stream.hpp>  // for tcp_stream
 #include <boost/beast/http.hpp>             // for read_async, request, response, verb, write_async
 #include <boost/beast/http/error.hpp>       // for error, error::end_of_stream
@@ -44,7 +45,6 @@
 #include <boost/beast/http/status.hpp>       // for status, status::not_found
 #include <boost/beast/http/string_body.hpp>  // for string_body, basic_string_body, basic_string_body<>::value_type
 #include <boost/beast/http/verb.hpp>         // for verb, operator<<, verb::unknown
-#include <boost/core/detail/string_view.hpp>
 #include <glog/logging.h>  // for CHECK and LOG
 #include <pybind11/gil.h>
 #include <pybind11/pybind11.h>  // IWYU pragma: keep
