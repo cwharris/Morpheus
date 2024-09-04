@@ -43,10 +43,7 @@ if(MORPHEUS_BUILD_BENCHMARKS)
   # google benchmark
   # ================
   include(${rapids-cmake-dir}/cpm/gbench.cmake)
-  rapids_cpm_gbench(
-    BUILD_EXPORT_SET ${PROJECT_NAME}-core-exports
-    INSTALL_EXPORT_SET ${PROJECT_NAME}-core-exports
-  )
+  rapids_cpm_gbench(BUILD_STATIC)
 endif()
 
 # glog
@@ -57,10 +54,7 @@ if(MORPHEUS_BUILD_TESTS)
   # google test
   # ===========
   include(${rapids-cmake-dir}/cpm/gtest.cmake)
-  rapids_cpm_gtest(
-    BUILD_EXPORT_SET ${PROJECT_NAME}-core-exports
-    INSTALL_EXPORT_SET ${PROJECT_NAME}-core-exports
-  )
+  rapids_cpm_gtest(BUILD_STATIC)
 endif()
 
 # cccl -- get an explicit cccl build, matx tries to pull a tag that doesn't exist.
